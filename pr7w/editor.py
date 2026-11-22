@@ -150,6 +150,9 @@ class Editor(QsciScintilla):
             self.SendScintilla(QsciScintilla.SCI_MARKERSETBACK, n, QColor(theme.TEXT_DIM))
 
     def _fit_numbers(self):
+        if not getattr(self, "_numbers_on", True):
+            self.setMarginWidth(0, 0)
+            return
         digits = max(3, len(str(self.lines())))
         self.setMarginWidth(0, "9" * (digits + 1))
 
@@ -164,4 +167,47 @@ class Editor(QsciScintilla):
         self.setFoldMarginColors(QColor(MARGIN), QColor(MARGIN))
         self.setMarginsBackgroundColor(QColor(MARGIN))
         self.setMarginsForegroundColor(QColor(MARGIN_TEXT))
+        self._fold_colours()
+
+    # ------------------------------------------------------------------ positions
+    # Scintilla positions are UTF-8 byte offsets; Python strings count characters. These convert,
+    # so a search done with Python's re on text() lands on the right text in the editor.
+    def char_to_pos(self, n: int) -> int:
+        if n <= 0:
+            return 0
+        pos = self.SendScintilla(QsciScintilla.SCI_POSITIONRELATIVE, 0, n)
+        return pos if pos or n == 0 else self.length()
+
+    def pos_to_char(self, pos: int) -> int:
+        return self.SendScintilla(QsciScintilla.SCI_COUNTCHARACTERS, 0, pos)
+
+    def selection_positions(self) -> tuple[int, int]:
+        return (self.SendScintilla(QsciScintilla.SCI_GETSELECTIONSTART),
+                self.SendScintilla(QsciScintilla.SCI_GETSELECTIONEND))
+
+    def text_range(self, start: int, end: int) -> str:
+        return self.text(start, end) if end > start else ""
+
+    # ------------------------------------------------------------------ View menu switches
+    def setWhitespaceVisibility_bool(self, on: bool):
+        self.setWhitespaceVisibility(QsciScintilla.WhitespaceVisibility.WsVisible if on
+                                     else QsciScintilla.WhitespaceVisibility.WsInvisible)
+
+    def set_wrap_symbols(self, on: bool):
+        self.setWrapVisualFlags(QsciScintilla.WrapVisualFlag.WrapFlagByText if on
+                                else QsciScintilla.WrapVisualFlag.WrapFlagNone)
+
+    def set_brace_matching(self, on: bool):
+        self.setBraceMatching(QsciScintilla.BraceMatch.SloppyBraceMatch if on else QsciScintilla.BraceMatch.NoBraceMatch)
+
+    def show_line_numbers(self, on: bool):
+        self._numbers_on = on
+        self._fit_numbers()
+
+    def show_symbol_margin(self, on: bool):
+        self.setMarginWidth(1, 14 if on else 0)
+
+    def show_folding(self, on: bool):
+        self.setFolding(QsciScintilla.FoldStyle.BoxedTreeFoldStyle if on else QsciScintilla.FoldStyle.NoFoldStyle, 2)
+        self.setFoldMarginColors(QColor(MARGIN), QColor(MARGIN))
         self._fold_colours()

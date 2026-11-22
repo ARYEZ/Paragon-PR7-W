@@ -138,6 +138,8 @@ QCheckBox::indicator, QRadioButton::indicator {{ width: 12px; height: 12px; bord
               border: 1px solid #000000; background: {qss_gradient(DIM * 0.5)}; }}
 QCheckBox::indicator:checked, QRadioButton::indicator:checked {{ background: {lit}; }}
 QCheckBox::indicator:hover, QRadioButton::indicator:hover {{ border: 1px solid {TEXT}; }}
+QCheckBox:disabled, QRadioButton:disabled {{ color: {TEXT_DIM}; }}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{ background: {WIDGET}; border: 1px solid {PANEL_EDGE}; }}
 
 /* The file list: selected row = family gradient @.22 with a gradient border. */
 QTableView, QListView {{ background: {BACKGROUND}; alternate-background-color: #09070A; border: 1px solid {PANEL_EDGE};

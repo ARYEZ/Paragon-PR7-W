@@ -1,0 +1,24 @@
+# Changelog
+
+## 0.1.0
+
+First version.
+
+- Notepad2's window in the Paragon OBSIDIAN look: menus (File, Edit, View, Settings, ?), toolbar, editor
+  (Scintilla via QScintilla) with line numbers, bookmark margin and code folding, status bar
+  (Ln : lines, Col, Sel, size, encoding, line endings, INS/OVR, scheme).
+- Files: open, save, save as, save copy, revert, recent files, drag and drop, save prompts, reload
+  when changed by another program (ask / automatic / off). Encodings as Notepad2 (ANSI, Unicode,
+  Unicode Big Endian, UTF-8, UTF-8 with Signature, others) and Recode; line endings CR+LF / LF / CR;
+  opening and saving unchanged is byte-exact; a warning before saving characters the encoding can't hold.
+- 40 syntax schemes chosen by file name, extension or #! line (F12 to pick, Shift+F12 for plain text),
+  all in one family colour scheme.
+- Find / Replace (regex, whole word, case, transform backslashes, wrap, in selection), Go To.
+- Edit > Lines / Block / Convert / Insert: move, duplicate, cut / copy / delete line, split, join, join
+  paragraphs, sort (logical, case, duplicates, unique, shuffle), indent, enclose, pad, strip, compress,
+  merge / remove blank lines, modify lines, line and stream comments, case conversions, tabify /
+  untabify, URL and C escapes, hex, HTML/XML tag, date/time, file name, GUID.
+- View and Settings toggles (word wrap, long line marker, guides, whitespace, line endings, wrap
+  symbols, braces, current line, margins, folding, toolbar, header, status bar, zoom, font, tabs,
+  auto indent, auto close HTML/XML, always on top, transparent mode), saved between sessions.
+- Explorer: "Edit with PR7-W" and "Open with" (per user). Installer (Inno Setup, per user) and CI.
