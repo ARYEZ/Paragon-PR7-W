@@ -128,7 +128,7 @@ def test_line_tools_on_the_selection(win):
 
 def test_toggle_comment_uses_the_scheme(win, tmp_path):
     p = tmp_path / "x.py"
-    p.write_text("a = 1\nb = 2\n")
+    p.write_bytes(b"a = 1\nb = 2\n")   # exact bytes: write_text gives \r\n on Windows
     win.open_path(str(p))
     win.editor.selectAll()
     act(win, "Toggle Line Comment")
@@ -167,9 +167,9 @@ def test_unencodable_text_offers_utf8(win, tmp_path):
 
 def test_reload_when_changed_on_disk(win, tmp_path):
     p = tmp_path / "live.log"
-    p.write_text("one\n")
+    p.write_bytes(b"one\n")
     win.open_path(str(p))
-    p.write_text("one\ntwo\n")
+    p.write_bytes(b"one\ntwo\n")
     os.utime(p, (win.disk_mtime + 5, win.disk_mtime + 5))
     win._disk_changed(str(p))
     assert win.editor.text() == "one\ntwo\n" and not win.editor.isModified()
