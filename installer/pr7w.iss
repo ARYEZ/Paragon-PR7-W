@@ -41,6 +41,7 @@ RestartApplications=no
 [Tasks]
 Name: "contextmenu"; Description: "Add ""Edit with PR7-W"" to Explorer's right-click menu"
 Name: "openwith"; Description: "List PR7-W under ""Open with"" for text and source files"
+Name: "replacenotepad"; Description: "Replace Windows Notepad with PR7-W (asks for administrator permission)"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
@@ -58,7 +59,11 @@ Filename: "{app}\PR7-W.exe"; Parameters: "--register-menu"; Tasks: contextmenu; 
 Filename: "{app}\PR7-W.exe"; Parameters: "--unregister-menu"; Tasks: not contextmenu; Flags: runhidden waituntilterminated
 Filename: "{app}\PR7-W.exe"; Parameters: "--register-open-with"; Tasks: openwith; Flags: runhidden waituntilterminated
 Filename: "{app}\PR7-W.exe"; Parameters: "--unregister-open-with"; Tasks: not openwith; Flags: runhidden waituntilterminated
+; Replacing Notepad is machine-wide (notepad.exe's redirect in HKLM): run elevated, one UAC prompt.
+Filename: "{app}\PR7-W.exe"; Parameters: "--replace-notepad"; Tasks: replacenotepad; Verb: "runas"; Flags: shellexec runhidden waituntilterminated; StatusMsg: "Replacing Windows Notepad..."
 Filename: "{app}\PR7-W.exe"; Description: "{cm:LaunchProgram,Paragon PR7-W}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
 Filename: "{app}\PR7-W.exe"; Parameters: "--unregister"; Flags: runhidden waituntilterminated; RunOnceId: "PR7WUnregister"
+; Recorded only when "Replace Windows Notepad" was chosen, so others get no admin prompt on uninstall.
+Filename: "{app}\PR7-W.exe"; Parameters: "--restore-notepad"; Tasks: replacenotepad; Verb: "runas"; Flags: shellexec runhidden waituntilterminated; RunOnceId: "PR7WRestoreNotepad"

@@ -14,6 +14,8 @@ from pathlib import Path
 from . import schemes
 
 PROGID = "Paragon.PR7W.Text"
+APP_NAME = "Paragon PR7-W"                          # its name in Windows' Default apps
+CAPABILITIES = r"Software\Paragon\PR7-W\Capabilities"
 VERB = "PR7W"
 TEXT_EXTS = sorted({e for s in schemes.SCHEMES for e in s.exts if e.isalnum() and len(e) <= 10} |
                    {"txt", "log", "md", "ini", "cfg", "csv", "tsv", "nfo", "srt", "url"})
@@ -81,6 +83,11 @@ def register_open_with():
     _set(rf"Software\Classes\{PROGID}\shell\open\command", {"": command()})
     for ext in TEXT_EXTS:
         _set(rf"Software\Classes\.{ext}\OpenWithProgids", {PROGID: None})
+    # Registered with Windows as a text editor, so Settings > Default apps lists it with all its types.
+    _set(CAPABILITIES, {"ApplicationName": APP_NAME, "ApplicationDescription": "Text editor (works like Notepad2)",
+                        "ApplicationIcon": icon()})
+    _set(CAPABILITIES + r"\FileAssociations", {f".{ext}": PROGID for ext in TEXT_EXTS})
+    _set(r"Software\RegisteredApplications", {APP_NAME: CAPABILITIES})
     _notify()
 
 
@@ -95,6 +102,13 @@ def unregister_open_with():
         except OSError:
             pass
     _delete_tree(rf"Software\Classes\{PROGID}")
+    _delete_tree(CAPABILITIES)
+    try:
+        k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\RegisteredApplications", 0, winreg.KEY_SET_VALUE)
+        winreg.DeleteValue(k, APP_NAME)
+        winreg.CloseKey(k)
+    except OSError:
+        pass
     _notify()
 
 
@@ -119,6 +133,9 @@ def _notify():
 
 def run(action: str) -> int:
     """The installer's and the command line's --register... switches."""
+    if action in ("--replace-notepad", "--restore-notepad"):
+        from . import notepad
+        return notepad.run(action)
     if not available():
         print("Explorer integration is for Windows.")
         return 1

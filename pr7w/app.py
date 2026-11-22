@@ -2,6 +2,8 @@
 
     pr7w [FILE] [/g LINE[,COL]]      open FILE (at a line, Notepad2's /g); -g works too
     pr7w --register | --unregister   "Edit with PR7-W" on Explorer's menu and "Open with" (this user only)
+    pr7w --replace-notepad | --restore-notepad   make notepad.exe start PR7-W (needs administrator rights)
+    pr7w /z NOTEPAD.EXE [/p] FILE    how Windows starts PR7-W in Notepad's place (/p: print and exit)
     pr7w --version
 """
 
@@ -14,10 +16,12 @@ from pathlib import Path
 def parse(argv: list[str]) -> tuple[str | None, str | None, tuple[int, int] | None]:
     """(action, file, (line, col)) from the command line."""
     action, path, goto = None, None, None
+    if argv and argv[0].lower() in ("/z", "-z"):
+        return _parse_notepad(argv[2:])
     it = iter(argv)
     for a in it:
         if a in ("--register", "--unregister", "--register-menu", "--unregister-menu", "--register-open-with",
-                 "--unregister-open-with", "--version", "--help"):
+                 "--unregister-open-with", "--replace-notepad", "--restore-notepad", "--version", "--help"):
             action = a
         elif a.lower() in ("/g", "-g"):
             spec = next(it, "")
@@ -33,6 +37,27 @@ def parse(argv: list[str]) -> tuple[str | None, str | None, tuple[int, int] | No
     return action, path, goto
 
 
+def _parse_notepad(args: list[str]):
+    """Notepad's own command line, after Windows' redirect (/z notepad.exe ...): optional /a /w /p /pt
+    switches, then the file name, unquoted when it has spaces (Notepad takes the rest of the line)."""
+    action = None
+    rest = list(args)
+    while rest and rest[0].startswith("/") and len(rest[0]) <= 3:
+        flag = rest.pop(0).lower()
+        if flag == "/p":
+            action = "--print-file"
+        elif flag == "/pt":
+            action = "--print-file"
+            if rest:
+                rest.pop(0)  # the printer name (the default printer is used)
+            if rest:
+                rest.pop(0)  # driver
+            if rest:
+                rest.pop(0)  # port
+    name = " ".join(rest).strip().strip('"') or None
+    return action, name, None
+
+
 def main(argv: list[str] | None = None) -> int:
     from . import __version__
     action, path, goto = parse(list(sys.argv[1:] if argv is None else argv))
@@ -42,12 +67,14 @@ def main(argv: list[str] | None = None) -> int:
     if action == "--version":
         print(f"PR7-W {__version__}")
         return 0
-    if action:
+    if action and action != "--print-file":
         from . import shell
         return shell.run(action)
     from PyQt6.QtGui import QIcon
     from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtCore import QSettings
     from . import theme
+    theme.set_finish(QSettings("Paragon", "PR7-W").value("finish", "obsidian"))
     QApplication.setApplicationName("PR7-W")
     QApplication.setOrganizationName("Paragon")
     app = QApplication.instance() or QApplication([sys.argv[0]])
@@ -59,6 +86,11 @@ def main(argv: list[str] | None = None) -> int:
         app.setWindowIcon(QIcon(str(ico)))
     from .main_window import MainWindow
     w = MainWindow(path, goto)
+    if action == "--print-file":  # Notepad's /p: print on the default printer, no window
+        ok = w.print_document(dialog=False)
+        w.editor.setModified(False)
+        w.close()
+        return 0 if ok else 2
     w.show()
     return app.exec()
 

@@ -20,6 +20,10 @@ def test_register_and_unregister():
         k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\Classes\.py\OpenWithProgids")
         winreg.QueryValueEx(k, shell.PROGID)
         assert shell.menu_registered()
+        k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\RegisteredApplications")
+        assert winreg.QueryValueEx(k, shell.APP_NAME)[0] == shell.CAPABILITIES
+        k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, shell.CAPABILITIES + r"\FileAssociations")
+        assert winreg.QueryValueEx(k, ".md")[0] == shell.PROGID
     finally:
         assert shell.run("--unregister") == 0
     assert not shell.menu_registered()

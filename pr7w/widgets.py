@@ -96,7 +96,7 @@ class Header(QWidget):
     def __init__(self, subtitle: str = "TEXT EDITOR", parent=None):
         super().__init__(parent)
         self.subtitle = subtitle
-        self.right = "OBSIDIAN"
+        self.right = None  # None: the current finish's name
         self.setFixedHeight(56)
 
     def set_right(self, text: str):
@@ -126,7 +126,8 @@ class Header(QWidget):
         p.setFont(f2)
         p.setPen(QColor(theme.TEXT_DIM))
         p.drawText(QRectF(mark.right() + 16, 0, 300, r.height()), VLEFT, self.subtitle)
-        p.drawText(QRectF(0, 0, r.width() - 20, r.height()), VRIGHT, self.right)
+        p.drawText(QRectF(0, 0, r.width() - 20, r.height()), VRIGHT,
+                   self.right if self.right is not None else theme.FINISH.upper())
         p.setPen(QPen(QColor(theme.PANEL_EDGE), 1))
         p.drawLine(0, r.height() - 1, r.width(), r.height() - 1)
 
@@ -248,7 +249,7 @@ class SmallKey(QAbstractButton):
             p.setPen(Qt.PenStyle.NoPen)
             p.setBrush(theme.family_gradient(bar.left(), 0, bar.right(), 0))
             p.drawRoundedRect(bar, 1, 1)
-        colour = QColor("#FFFFFF") if (hover or down or self.isChecked()) else QColor(theme.TEXT)
+        colour = QColor("#FFFFFF") if (hover or down or self.isChecked()) else QColor(theme.ON_DARK)
         if not self.isEnabled():
             colour = QColor(theme.TEXT_DIM)
         draw_icon(p, self.icon_name, QRectF(face.center().x() - 9, face.center().y() - 9.5, 18, 18), colour, 1.6)

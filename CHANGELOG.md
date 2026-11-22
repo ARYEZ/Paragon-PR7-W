@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.0
+
+- Replace Windows Notepad (Settings, and a ticked installer task): notepad.exe starts PR7-W instead
+  (Windows' Image File Execution Options redirect, both registry views; administrator permission, one
+  UAC prompt). Notepad's command line is understood after Windows' `/z` hand-off, including unquoted
+  names with spaces and `/p` / `/pt` (print and exit). Uninstalling restores Notepad; another program's
+  redirect is never touched.
+- Default text editor: PR7-W registers with Windows (RegisteredApplications, Capabilities) for its 162
+  file types; Settings > Default Text Editor... opens Windows' Default apps page for it.
+- Printing: Page Setup (colour mode: colour on white / black on white / screen colours; zoom; header
+  and footer; paper and margins) and Print (Ctrl+P, Selection). Header: file name and date; footer: page
+  number. On paper the text uses darker shades of the family hues.
+- Customize Schemes (Ctrl+F12): colour (family swatches), bold, italic, underline for a role in every
+  scheme or one style of one scheme; live preview, Cancel undoes; saved per finish.
+- AURORA, the light finish (View > Finish): warm pearl dimmed 10%, ink lettering, black keys and menus;
+  dark-on-pearl syntax colours. Dialog headers show the current finish.
+
 ## 0.1.0
 
 First version.

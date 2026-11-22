@@ -24,6 +24,19 @@ Python; explain the why of changes.
 - `pr7w/main_window.py`: menus declared with `_act` (text, shortcut, slot, settings key); find/replace runs
   Python's `re` on `text()` and maps offsets, so Find and Replace All agree.
 - `pr7w/shell.py`: "Edit with PR7-W" (a registry verb on `*`) and Open with, HKCU only.
+- **Finishes:** `theme.set_finish("obsidian"|"aurora")` rebinds the module's colours (FINISHES), and
+  `theme.syntax()` / `theme.editor_colours()` give the per-finish sets; things that stay dark in both (keys,
+  menus, buttons, tooltips) use `theme.ON_DARK`. `MainWindow.set_finish` re-applies style sheet, palette and
+  `Editor.apply_colours()`. With a lexer set, `QsciScintilla.paper()` doesn't report what's drawn: tests read
+  `SCI_STYLEGETBACK`. Colour checks use chroma (HSL calls near-blacks saturated).
+- `pr7w/printing.py`: `PagePrinter.formatPage` draws header/footer and shrinks the area; prints use AURORA's
+  syntax set on white (`COLOUR_MODES`), then `apply_colours()` restores the screen.
+- Customize Schemes: overrides `{"role:<role>"|"<scheme>:<style>": {fore, bold, italic, underline}}`, per finish,
+  JSON in the `style_overrides` setting; `style_lexer(..., overrides=, scheme=)` applies them.
+- `pr7w/notepad.py`: Notepad replacement = HKLM IFEO `notepad.exe` Debugger `"<PR7-W>" /z` in both registry
+  views (admin; `run_elevated` re-runs PR7-W with "runas"); only PR7-W's own value is removed. `app._parse_notepad`
+  reads Notepad's command line after `/z <notepad path>` (unquoted spaces, /p, /pt). Default apps: Capabilities +
+  RegisteredApplications (shell.register_open_with); `ms-settings:defaultapps?registeredAppUser=Paragon%20PR7-W`.
 - Installer `installer/pr7w.iss` (Inno Setup 6, per user, AppId {D8F51204-6E9E-4CB7-BF2E-58F4908B7937}
   permanent); CI installs it silently and runs `tools/verify_install.py installed|uninstalled`.
 

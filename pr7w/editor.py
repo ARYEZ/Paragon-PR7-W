@@ -13,31 +13,8 @@ from PyQt6.QtGui import QColor, QFont
 
 from . import theme
 
-# Syntax colours (all within the family's hues ~318 deg -> 0 -> 42 deg, or greys).
-SYNTAX = {
-    "default": (theme.TEXT, False, False),
-    "comment": ("#9A8F96", False, True),
-    "keyword": ("#FF6B3D", True, False),     # orange-red
-    "keyword2": ("#FF9A2E", False, False),   # orange: builtins, secondary keywords
-    "string": ("#FFB3C8", False, False),     # pale pink
-    "char": ("#FFC29A", False, False),       # peach: chars, regexes
-    "number": ("#FFB22E", False, False),     # amber-orange
-    "class": ("#FF4FA8", True, False),       # magenta-pink
-    "function": ("#FF6F91", False, False),   # rose
-    "decorator": ("#FF8A5C", False, False),  # coral: decorators, preprocessor
-    "operator": ("#D9C9CF", False, False),   # pearl grey
-    "tag": ("#FF5D6C", False, False),        # markup tags
-    "attribute": ("#FF9A2E", False, False),
-    "heading": ("#FF6B3D", True, False),
-    "error": ("#FFFFFF", False, False),
-}
-
-PAPER = "#08060A"           # editor background (a shade above the window's onyx)
-MARGIN = "#0B090C"
-MARGIN_TEXT = "#6B6569"
-CARET_LINE = "#120E13"
-SELECTION = theme.ACCENT_DIM
-BRACE = "#FF7A1A"
+# Syntax colours by role, per finish, live in theme.SYNTAX_SETS (OBSIDIAN's set kept here for tests).
+SYNTAX = theme.SYNTAX_SETS["obsidian"]
 
 
 def role_of(description: str) -> str:
@@ -71,23 +48,42 @@ def editor_font(size: int = 11) -> QFont:
     return QFont("monospace", size)
 
 
-def style_lexer(lexer, font: QFont) -> None:
-    """Paint a QScintilla lexer in the family colours, style by style, from each style's role."""
-    lexer.setDefaultPaper(QColor(PAPER))
-    lexer.setDefaultColor(QColor(theme.TEXT))
-    lexer.setPaper(QColor(PAPER), -1)
+def style_lexer(lexer, font: QFont, syntax: dict | None = None, paper: str | None = None,
+                overrides: dict | None = None, scheme: str = "") -> None:
+    """Paint a QScintilla lexer, style by style, from each style's role.
+
+    syntax: role -> (colour, bold, italic); the current finish's set by default (printing passes its own).
+    overrides: Customize Schemes' changes, {"role:<role>": attrs, "<scheme>:<style>": attrs} where attrs is
+    {"fore": "#rrggbb", "bold": bool, "italic": bool, "underline": bool}; a scheme's own style wins over its role.
+    """
+    syntax = syntax or theme.syntax()
+    paper = paper or theme.editor_colours()["paper"]
+    overrides = overrides or {}
+    lexer.setDefaultPaper(QColor(paper))
+    lexer.setDefaultColor(QColor(syntax["default"][0]))
+    lexer.setPaper(QColor(paper), -1)
     lexer.setFont(font, -1)
     for style in range(128):
         desc = lexer.description(style)
         if not desc:
             continue
-        colour, bold, italic = SYNTAX[role_of(desc)]
+        role = role_of(desc)
+        colour, bold, italic = syntax[role]
+        underline = False
+        for key in (f"role:{role}", f"{scheme}:{style}"):
+            o = overrides.get(key)
+            if o:
+                colour = o.get("fore", colour)
+                bold = o.get("bold", bold)
+                italic = o.get("italic", italic)
+                underline = o.get("underline", underline)
         lexer.setColor(QColor(colour), style)
         f = QFont(font)
         f.setBold(bold)
         f.setItalic(italic)
+        f.setUnderline(underline)
         lexer.setFont(f, style)
-        if role_of(desc) == "error":
+        if role == "error":
             lexer.setPaper(QColor(theme.ACCENT_DIM), style)
         if hasattr(lexer, "setEolFill"):
             lexer.setEolFill(False, style)
@@ -99,36 +95,22 @@ class Editor(QsciScintilla):
         self.base_font = editor_font()
         self.setUtf8(True)
         self.setFont(self.base_font)
-        self.setPaper(QColor(PAPER))
-        self.setColor(QColor(theme.TEXT))
         # margins: line numbers, bookmarks, folding
         self.setMarginType(0, QsciScintilla.MarginType.NumberMargin)
         self.setMarginsFont(self.base_font)
-        self.setMarginsBackgroundColor(QColor(MARGIN))
-        self.setMarginsForegroundColor(QColor(MARGIN_TEXT))
         self.setMarginWidth(1, 14)
         self.setMarginSensitivity(1, True)
         self.setFolding(QsciScintilla.FoldStyle.BoxedTreeFoldStyle, 2)
-        self.setFoldMarginColors(QColor(MARGIN), QColor(MARGIN))
-        self._fold_colours()
         self.bookmark = self.markerDefine(QsciScintilla.MarkerSymbol.Bookmark, 24)
         self.setMarkerBackgroundColor(QColor(theme.ACCENT), self.bookmark)
         # caret, current line, selection, braces, guides
-        self.setCaretForegroundColor(QColor(theme.ACCENT))
         self.setCaretWidth(2)
         self.setCaretLineVisible(True)
-        self.setCaretLineBackgroundColor(QColor(CARET_LINE))
-        self.setSelectionBackgroundColor(QColor(SELECTION))
-        self.setSelectionForegroundColor(QColor("#FFFFFF"))
         self.setBraceMatching(QsciScintilla.BraceMatch.SloppyBraceMatch)
-        self.setMatchedBraceForegroundColor(QColor(BRACE))
-        self.setMatchedBraceBackgroundColor(QColor("#2A1408"))
-        self.setUnmatchedBraceForegroundColor(QColor("#FFFFFF"))
-        self.setUnmatchedBraceBackgroundColor(QColor(theme.ACCENT_DIM))
         self.setIndentationGuides(True)
-        self.setIndentationGuidesBackgroundColor(QColor(PAPER))
-        self.setIndentationGuidesForegroundColor(QColor(theme.PANEL_EDGE))
-        self.setWhitespaceForegroundColor(QColor("#3A3036"))
+        self.overrides: dict = {}
+        self.scheme_name = ""
+        self.apply_colours()
         self.setAutoIndent(True)
         self.setIndentationsUseTabs(False)
         self.setTabWidth(4)
@@ -142,11 +124,37 @@ class Editor(QsciScintilla):
         self.textChanged.connect(self._fit_numbers)
         self._fit_numbers()
 
+    def apply_colours(self):
+        """Every editor colour from the current finish (called again when the finish changes)."""
+        c = theme.editor_colours()
+        default = theme.syntax()["default"][0]
+        self.setPaper(QColor(c["paper"]))
+        self.setColor(QColor(default))
+        self.setMarginsBackgroundColor(QColor(c["margin"]))
+        self.setMarginsForegroundColor(QColor(c["margin_text"]))
+        self.setFoldMarginColors(QColor(c["margin"]), QColor(c["margin"]))
+        self._fold_colours()
+        self.setCaretForegroundColor(QColor(theme.ACCENT))
+        self.setCaretLineBackgroundColor(QColor(c["caret_line"]))
+        self.setSelectionBackgroundColor(QColor(theme.ACCENT_DIM))
+        self.setSelectionForegroundColor(QColor("#FFFFFF"))
+        self.setMatchedBraceForegroundColor(QColor(c["brace"]))
+        self.setMatchedBraceBackgroundColor(QColor(c["brace_back"]))
+        self.setUnmatchedBraceForegroundColor(QColor("#FFFFFF"))
+        self.setUnmatchedBraceBackgroundColor(QColor(theme.ACCENT_DIM))
+        self.setIndentationGuidesBackgroundColor(QColor(c["paper"]))
+        self.setIndentationGuidesForegroundColor(QColor(c["guides"]))
+        self.setWhitespaceForegroundColor(QColor(c["whitespace"]))
+        if self.lexer() is not None:
+            style_lexer(self.lexer(), self.base_font, overrides=self.overrides, scheme=self.scheme_name)
+            self.recolor()
+
     def _fold_colours(self):
-        """Fold boxes and lines as dim grey outlines on the margin (Scintilla's default is white boxes).
+        """Fold boxes and lines as dim outlines on the margin (Scintilla's default is white boxes).
         For the folding markers (25-31) 'fore' is the box fill and 'back' the outline and lines."""
+        c = theme.editor_colours()
         for n in range(25, 32):
-            self.SendScintilla(QsciScintilla.SCI_MARKERSETFORE, n, QColor(MARGIN))
+            self.SendScintilla(QsciScintilla.SCI_MARKERSETFORE, n, QColor(c["margin"]))
             self.SendScintilla(QsciScintilla.SCI_MARKERSETBACK, n, QColor(theme.TEXT_DIM))
 
     def _fit_numbers(self):
@@ -156,18 +164,14 @@ class Editor(QsciScintilla):
         digits = max(3, len(str(self.lines())))
         self.setMarginWidth(0, "9" * (digits + 1))
 
-    def set_lexer(self, lexer):
+    def set_lexer(self, lexer, scheme: str = ""):
+        self.scheme_name = scheme
         if lexer is not None:
-            style_lexer(lexer, self.base_font)
+            style_lexer(lexer, self.base_font, overrides=self.overrides, scheme=scheme)
         self.setLexer(lexer)
         if lexer is None:  # plain text: the editor's own colours
-            self.setPaper(QColor(PAPER))
-            self.setColor(QColor(theme.TEXT))
             self.setFont(self.base_font)
-        self.setFoldMarginColors(QColor(MARGIN), QColor(MARGIN))
-        self.setMarginsBackgroundColor(QColor(MARGIN))
-        self.setMarginsForegroundColor(QColor(MARGIN_TEXT))
-        self._fold_colours()
+        self.apply_colours()
 
     # ------------------------------------------------------------------ positions
     # Scintilla positions are UTF-8 byte offsets; Python strings count characters. These convert,
@@ -209,5 +213,4 @@ class Editor(QsciScintilla):
 
     def show_folding(self, on: bool):
         self.setFolding(QsciScintilla.FoldStyle.BoxedTreeFoldStyle if on else QsciScintilla.FoldStyle.NoFoldStyle, 2)
-        self.setFoldMarginColors(QColor(MARGIN), QColor(MARGIN))
-        self._fold_colours()
+        self.apply_colours()

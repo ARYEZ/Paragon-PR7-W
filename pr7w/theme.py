@@ -1,4 +1,5 @@
-"""The Paragon family look (OBSIDIAN finish) for Qt (PyQt6 port of Paragon PR7-Z's theme.py).
+"""The Paragon family look for Qt, in its two finishes: OBSIDIAN (dark, default) and AURORA (light).
+(PyQt6 port of Paragon PR7-Z's theme.py, plus AURORA.)
 
 Every value here comes from Paragon Photo's docs/paragon-finish-spec.md, which was
 extracted from the PR7 plugins' ParagonLookAndFeel / Finish sources. Colour rule of
@@ -33,6 +34,77 @@ DOCK_TOP = "#0E0B0F"
 DOCK_BOTTOM = "#09070A"
 TAB_FRAME = "#0D0A0E"
 SCROLL_TRACK = "#0B090C"
+
+ON_DARK = "#E8E8EA"     # text and icons on things that stay dark in both finishes (keys, menus, buttons)
+
+# ---------------------------------------------------------------- the finishes (spec section 0, 1d, 1f, 5)
+# OBSIDIAN is the values above. AURORA: warm pearl surfaces dimmed 10% (pearl x 0.9), ink lettering;
+# the screens, neon, menus, buttons and black keys stay as they are on both.
+_PEARL = 0.9
+FINISHES = {
+    "obsidian": dict(BACKGROUND="#060407", PANEL_EDGE="#27222A", TEXT="#E8E8EA", TEXT_DIM="#8A8A92",
+                     WIDGET="#151217", DOCK_TOP="#0E0B0F", DOCK_BOTTOM="#09070A", TAB_FRAME="#0D0A0E",
+                     SCROLL_TRACK="#0B090C", ALT_ROW="#09070A"),
+    "aurora": dict(BACKGROUND="#D9D0D4", PANEL_EDGE="#A8999F", TEXT="#26252A", TEXT_DIM="#6B6569",
+                   WIDGET="#E6E4E5", DOCK_TOP="#E0DBDD", DOCK_BOTTOM="#D6CCD2", TAB_FRAME="#D3C9CE",
+                   SCROLL_TRACK="#D0C6CB", ALT_ROW="#D3CACE"),
+}
+ALT_ROW = "#09070A"
+
+# The editor's surfaces per finish.
+EDITOR_SETS = {
+    "obsidian": dict(paper="#08060A", margin="#0B090C", margin_text="#6B6569", caret_line="#120E13",
+                     brace="#FF7A1A", brace_back="#2A1408", whitespace="#3A3036", guides="#27222A"),
+    "aurora": dict(paper="#E6E4E5", margin="#D6CED2", margin_text="#6B6569", caret_line="#DDD5D9",
+                   brace="#B23A00", brace_back="#F2CDB8", whitespace="#B3A7AD", guides="#C3B8BD"),
+}
+
+# Syntax colours per finish (role -> colour, bold, italic). All within the family's hues ~318 -> 0 -> 42
+# degrees, or greys. AURORA's set (dark shades of the same hues) is also the print set, on white.
+SYNTAX_SETS = {
+    "obsidian": {
+        "default": ("#E8E8EA", False, False), "comment": ("#9A8F96", False, True),
+        "keyword": ("#FF6B3D", True, False), "keyword2": ("#FF9A2E", False, False),
+        "string": ("#FFB3C8", False, False), "char": ("#FFC29A", False, False), "number": ("#FFB22E", False, False),
+        "class": ("#FF4FA8", True, False), "function": ("#FF6F91", False, False),
+        "decorator": ("#FF8A5C", False, False), "operator": ("#D9C9CF", False, False),
+        "tag": ("#FF5D6C", False, False), "attribute": ("#FF9A2E", False, False),
+        "heading": ("#FF6B3D", True, False), "error": ("#FFFFFF", False, False),
+    },
+    "aurora": {
+        "default": ("#26252A", False, False), "comment": ("#7A6F75", False, True),
+        "keyword": ("#C2330F", True, False), "keyword2": ("#B35A00", False, False),
+        "string": ("#B0205A", False, False), "char": ("#A0451A", False, False), "number": ("#A65F00", False, False),
+        "class": ("#B0106A", True, False), "function": ("#B3264A", False, False),
+        "decorator": ("#B5471E", False, False), "operator": ("#5E5358", False, False),
+        "tag": ("#C21F35", False, False), "attribute": ("#B35A00", False, False),
+        "heading": ("#C2330F", True, False), "error": ("#FFFFFF", False, False),
+    },
+}
+# Swatches offered by Customize Schemes: the family colours, light ones for OBSIDIAN, dark for AURORA.
+SWATCHES = {
+    "obsidian": ["#E8E8EA", "#D9C9CF", "#9A8F96", "#6B6569", "#FFFFFF", "#FFB3C8", "#FF6F91", "#FF4FA8",
+                 "#FF5D6C", "#F4353A", "#FF6B3D", "#FF8A5C", "#FF7A1A", "#FF9A2E", "#FFB22E", "#FFC29A"],
+    "aurora": ["#26252A", "#5E5358", "#7A6F75", "#6B6569", "#000000", "#B0205A", "#B3264A", "#B0106A",
+               "#C21F35", "#DE0639", "#C2330F", "#B5471E", "#CF5C1C", "#B35A00", "#A65F00", "#A0451A"],
+}
+FINISH = "obsidian"
+
+
+def set_finish(name: str) -> None:
+    """Switch the module's colours to a finish. Style sheets and painting read them afresh."""
+    global FINISH
+    FINISH = name if name in FINISHES else "obsidian"
+    globals().update(FINISHES[FINISH])
+
+
+def syntax() -> dict:
+    return SYNTAX_SETS[FINISH]
+
+
+def editor_colours() -> dict:
+    return EDITOR_SETS[FINISH]
+
 
 # 1b. Family gradient stops (DE0639 -> CD6619), and the two strengths it's drawn at.
 FAMILY_STOPS = [(0.0, "#DE0639"), (0.25, "#D90738"), (0.5, "#D42E2A"), (0.75, "#CF5C1C"), (1.0, "#CD6619")]
@@ -104,7 +176,7 @@ def stylesheet() -> str:
     return f"""
 * {{ font-family: "Inter"; font-size: 13px; color: {TEXT}; outline: 0; }}
 QMainWindow, QDialog {{ background: {BACKGROUND}; }}
-QToolTip {{ background: {PANEL}; color: {TEXT}; border: 1px solid {PANEL_EDGE}; border-radius: 4px; padding: 5px 9px; }}
+QToolTip {{ background: {PANEL}; color: {ON_DARK}; border: 1px solid {PANEL_EDGE}; border-radius: 4px; padding: 5px 9px; }}
 
 /* Menu bar and popup menus: black, white text, the family gradient under the mouse. */
 QMenuBar {{ background: {BACKGROUND}; border-bottom: 1px solid {PANEL_EDGE}; padding: 2px 6px; }}
@@ -117,11 +189,12 @@ QMenu::item:disabled {{ color: rgba(255,255,255,0.35); }}
 QMenu::separator {{ height: 1px; background: {PANEL_EDGE}; margin: 4px 6px; }}
 
 /* Buttons: 1C1C20, 1 px panelEdge, radius 4; pressed = dim family gradient. */
-QPushButton {{ background: {BUTTON}; border: 1px solid {PANEL_EDGE}; border-radius: 4px; padding: 7px 16px;
+QPushButton {{ background: {BUTTON}; color: {ON_DARK}; border: 1px solid {PANEL_EDGE}; border-radius: 4px; padding: 7px 16px;
               font-weight: 600; font-size: 12px; }}
 QPushButton:hover {{ background: {BUTTON_HOVER}; }}
 QPushButton:pressed {{ background: {qss_gradient(DIM)}; }}
 QPushButton:disabled {{ color: rgba(232,232,234,0.4); }}
+QComboBox QAbstractItemView, QComboBox QAbstractItemView::item {{ color: {ON_DARK}; }}
 QPushButton:default {{ border: 1px solid {ACCENT}; }}
 
 /* Text fields and drop-downs: widget background, accent caret/text per spec. */
@@ -142,7 +215,7 @@ QCheckBox:disabled, QRadioButton:disabled {{ color: {TEXT_DIM}; }}
 QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{ background: {WIDGET}; border: 1px solid {PANEL_EDGE}; }}
 
 /* The file list: selected row = family gradient @.22 with a gradient border. */
-QTableView, QListView {{ background: {BACKGROUND}; alternate-background-color: #09070A; border: 1px solid {PANEL_EDGE};
+QTableView, QListView {{ background: {BACKGROUND}; alternate-background-color: {ALT_ROW}; border: 1px solid {PANEL_EDGE};
               border-radius: 6px; gridline-color: {PANEL_EDGE}; }}
 QTableView::item, QListView::item {{ padding: 4px 6px; }}
 QTableView::item:selected, QListView::item:selected {{ background: {qss_gradient(LIT, 0.22)}; color: #FFFFFF; }}
@@ -150,7 +223,7 @@ QTableCornerButton::section {{ background: {TAB_FRAME}; border: none; }}
 QPlainTextEdit, QTextEdit {{ background: {WIDGET}; border: 1px solid {PANEL_EDGE}; border-radius: 6px; padding: 6px;
               font-family: "Consolas", "Cascadia Mono", "DejaVu Sans Mono", monospace; font-size: 12px;
               selection-background-color: {ACCENT_DIM}; }}
-QTreeView {{ background: {BACKGROUND}; alternate-background-color: #09070A; border: 1px solid {PANEL_EDGE};
+QTreeView {{ background: {BACKGROUND}; alternate-background-color: {ALT_ROW}; border: 1px solid {PANEL_EDGE};
               border-radius: 6px; padding: 2px; }}
 QTreeView::item {{ height: 24px; padding: 0 4px; border: 1px solid transparent; }}
 QTreeView::item:hover {{ background: {row_soft}; }}

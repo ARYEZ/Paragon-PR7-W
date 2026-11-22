@@ -42,10 +42,12 @@ def test_every_scheme_builds_in_family_colours(qapp):
 def test_family_hues_only():
     """No green, blue, purple, yellow or cyan: every syntax colour is a red/pink/orange hue or a grey."""
     from PyQt6.QtGui import QColor
-    for name, (colour, _, _) in SYNTAX.items():
-        c = QColor(colour)
-        h, s = c.hslHue(), c.hslSaturationF()
-        assert s < 0.25 or h == -1 or h >= 318 or h <= 42, (name, colour, h, s)
+    from pr7w import theme
+    for finish, syntax in theme.SYNTAX_SETS.items():
+        for name, (colour, _, _) in syntax.items():
+            c = QColor(colour)
+            chroma = (max(c.red(), c.green(), c.blue()) - min(c.red(), c.green(), c.blue())) / 255
+            assert chroma < 0.12 or c.hslHue() >= 318 or c.hslHue() <= 42, (finish, name, colour)
 
 
 def test_roles():

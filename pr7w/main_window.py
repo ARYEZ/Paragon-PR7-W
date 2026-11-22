@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import uuid
@@ -13,8 +14,8 @@ from PyQt6.QtCore import QFileSystemWatcher, QSettings, QSize, Qt, QTimer
 from PyQt6.QtGui import QAction, QActionGroup, QKeySequence
 from PyQt6.QtWidgets import QApplication, QFileDialog, QFontDialog, QLabel, QMainWindow, QStatusBar, QVBoxLayout, QWidget
 
-from . import document, schemes, textops
-from .dialogs import (AboutDialog, FindReplaceDialog, GoToDialog, NumberDialog, SchemeDialog, SortDialog,
+from . import document, notepad, printing, schemes, textops, theme
+from .dialogs import (AboutDialog, CustomizeSchemesDialog, FindReplaceDialog, PageSetupDialog, GoToDialog, NumberDialog, SchemeDialog, SortDialog,
                       TwoFieldDialog, ask_save, message)
 from .editor import Editor
 from .widgets import Header, Toolbar
@@ -36,6 +37,7 @@ class MainWindow(QMainWindow):
         self.scheme_override = False
         self.disk_mtime = 0.0
         self.find_dialog: FindReplaceDialog | None = None
+        self.printer: printing.PagePrinter | None = None
         self.watcher = QFileSystemWatcher(self)
         self.watcher.fileChanged.connect(self._disk_changed)
 
@@ -49,6 +51,7 @@ class MainWindow(QMainWindow):
         self.toolbar.triggered.connect(self._toolbar)
         col.addWidget(self.toolbar)
         self.editor = Editor()
+        self.editor.overrides = self._load_overrides().get(theme.FINISH, {})
         col.addWidget(self.editor, 1)
         self.setCentralWidget(central)
         sb = QStatusBar()
@@ -287,7 +290,7 @@ class MainWindow(QMainWindow):
     # ================================================================ schemes
     def _apply_scheme(self, scheme: schemes.Scheme):
         self.scheme = scheme
-        self.editor.set_lexer(schemes.make_lexer(scheme, self.editor))
+        self.editor.set_lexer(schemes.make_lexer(scheme, self.editor), scheme.name)
         self._status()
 
     def choose_scheme(self):
@@ -590,6 +593,104 @@ class MainWindow(QMainWindow):
             self._actions["change_notify"].setChecked(i != 2)
             self._watch()
 
+    # ================================================================ finish, schemes, printing, Notepad
+    def set_finish(self, name: str):
+        """OBSIDIAN (dark) or AURORA (light): the whole window and the editor, at once."""
+        theme.set_finish(name)
+        app = QApplication.instance()
+        app.setPalette(theme.palette())
+        app.setStyleSheet(theme.stylesheet())
+        self.settings.setValue("finish", theme.FINISH)
+        self.editor.overrides = self._load_overrides().get(theme.FINISH, {})
+        self.editor.apply_colours()
+        self._set_long_line(self._actions["long_line"].isChecked())
+        for w in (self.header, self.toolbar, *self.toolbar.keys.values()):
+            w.update()
+        self.finish_actions[theme.FINISH].setChecked(True)
+
+    def _load_overrides(self) -> dict:
+        try:
+            data = json.loads(self.settings.value("style_overrides", "{}") or "{}")
+            return data if isinstance(data, dict) else {}
+        except (TypeError, ValueError):
+            return {}
+
+    def customize_schemes(self):
+        work = dict(self.editor.overrides)
+
+        def apply(overrides):
+            self.editor.overrides = overrides
+            self.editor.apply_colours()
+
+        d = CustomizeSchemesDialog(self, work, apply, self.scheme.name)
+        if d.exec() == CustomizeSchemesDialog.DialogCode.Accepted:
+            data = self._load_overrides()
+            data[theme.FINISH] = work
+            self.settings.setValue("style_overrides", json.dumps(data))
+
+    def _make_printer(self) -> printing.PagePrinter:
+        if self.printer is None:
+            self.printer = printing.PagePrinter()
+            layout = self.settings.value("page_margins_mm")
+            if layout:
+                from PyQt6.QtCore import QMarginsF
+                from PyQt6.QtGui import QPageLayout
+                left, top, right, bottom = (float(x) for x in layout)
+                self.printer.setPageMargins(QMarginsF(left, top, right, bottom), QPageLayout.Unit.Millimeter)
+        self.printer.title = printing.doc_title(self.path)
+        self.printer.header = self.settings.value("print_header", True, type=bool)
+        return self.printer
+
+    def page_setup(self):
+        p = self._make_printer()
+        d = PageSetupDialog(self, p, self.settings.value("print_mode", "colour"),
+                            int(self.settings.value("print_zoom", 0)), p.header)
+        if d.exec() == PageSetupDialog.DialogCode.Accepted:
+            self.settings.setValue("print_mode", d.chosen_mode())
+            self.settings.setValue("print_zoom", d.zoom.value())
+            self.settings.setValue("print_header", d.header.isChecked())
+            from PyQt6.QtGui import QPageLayout
+            m = p.pageLayout().margins(QPageLayout.Unit.Millimeter)
+            self.settings.setValue("page_margins_mm", [m.left(), m.top(), m.right(), m.bottom()])
+
+    def print_document(self, printer=None, dialog: bool = True) -> bool:
+        """File > Print (Ctrl+P); also Notepad's /p (no dialog, default printer)."""
+        p = printer or self._make_printer()
+        if printer is not None:
+            p.title = printing.doc_title(self.path)
+        lines = None
+        if dialog:
+            from PyQt6.QtPrintSupport import QAbstractPrintDialog, QPrintDialog, QPrinter
+            d = QPrintDialog(p, self)
+            d.setOption(QAbstractPrintDialog.PrintDialogOption.PrintSelection, self.editor.hasSelectedText())
+            if d.exec() != QPrintDialog.DialogCode.Accepted:
+                return False
+            if p.printRange() == QPrinter.PrintRange.Selection and self.editor.hasSelectedText():
+                _, _, l1, l2 = self._line_block()
+                lines = (l1, l2)
+        ok = printing.print_editor(self.editor, p, self.settings.value("print_mode", "colour"),
+                                   int(self.settings.value("print_zoom", 0)), lines, self.editor.overrides)
+        if not ok:
+            self.statusBar().showMessage("Printing failed.", 5000)
+        return ok
+
+    def replace_notepad(self, on: bool):
+        """Settings > Replace Windows Notepad (machine-wide: asks for administrator rights)."""
+        action = "--replace-notepad" if on else "--restore-notepad"
+        if notepad.is_admin():
+            notepad.run(action)
+        else:
+            code = notepad.run_elevated(action)
+            if code == -1:
+                self.statusBar().showMessage("Not changed: administrator permission wasn't given.", 6000)
+        self.notepad_action.setChecked(notepad.is_replaced())
+
+    def default_editor(self):
+        """Register with Windows (if not yet) and open its Default apps page for PR7-W."""
+        from . import shell
+        shell.register_open_with()
+        notepad.open_default_apps()
+
     def _setting(self, key: str, default: bool) -> bool:
         a = self._actions.get(key)
         return a.isChecked() if a is not None else default
@@ -717,6 +818,9 @@ class MainWindow(QMainWindow):
             self.eol_actions[k] = a
         eolm.aboutToShow.connect(lambda: self.eol_actions[self.eol].setChecked(True))
         m.addSeparator()
+        act(m, "Page Se&tup...", self.page_setup)
+        act(m, "&Print...", self.print_document, "Ctrl+P")
+        m.addSeparator()
         self.recent_menu = m.addMenu("Open &Recent")
         self._fill_recent()
         m.addSeparator()
@@ -805,6 +909,15 @@ class MainWindow(QMainWindow):
         m = bar.addMenu("&View")
         act(m, "&Syntax Scheme...", self.choose_scheme, "F12")
         act(m, "&Default Text Scheme", self.toggle_default_scheme, "Shift+F12")
+        act(m, "&Customize Schemes...", self.customize_schemes, "Ctrl+F12")
+        fm = m.addMenu("Fi&nish")
+        finish_group = QActionGroup(self)
+        self.finish_actions = {}
+        for key, label in (("obsidian", "&OBSIDIAN (dark)"), ("aurora", "&AURORA (light)")):
+            a = act(fm, label, lambda on, k=key: on and self.set_finish(k), checkable=True)
+            a.setChecked(theme.FINISH == key)
+            finish_group.addAction(a)
+            self.finish_actions[key] = a
         m.addSeparator()
         act(m, "&Font...", self.font_dialog, "Alt+F12")
         m.addSeparator()
@@ -860,6 +973,11 @@ class MainWindow(QMainWindow):
         act(m, "Remember Recent &Files", None, key="remember_recent", checkable=True, default=True, setting=True)
         act(m, "Save Settings On &Exit", None, key="save_on_exit", checkable=True, default=True, setting=True)
         act(m, "&Save Settings Now", self._save_settings, "F7")
+        m.addSeparator()
+        self.notepad_action = act(m, "&Replace Windows Notepad", self.replace_notepad, checkable=True)
+        self.notepad_action.setEnabled(notepad.available())
+        m.aboutToShow.connect(lambda: self.notepad_action.setChecked(notepad.is_replaced()))
+        act(m, "Default Te&xt Editor...", self.default_editor).setEnabled(notepad.available())
 
         m = bar.addMenu("&?")
         act(m, "&About PR7-W...", lambda: AboutDialog(self).exec())

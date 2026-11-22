@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (QCheckBox, QComboBox, QDialog, QGridLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit,
                              QListWidget, QPushButton, QRadioButton, QSpinBox, QVBoxLayout, QWidget)
 
@@ -284,3 +284,181 @@ class AboutDialog(ParagonDialog):
         self.add_button("OK", self.accept, default=True)
 
 
+
+
+# ----------------------------------------------------------------------------- printing
+class PageSetupDialog(ParagonDialog):
+    """Notepad2's Page Setup: colour mode, zoom, header and footer; paper and margins via Qt's own dialog."""
+
+    def __init__(self, parent, printer, mode: str, zoom: int, header: bool):
+        from .printing import COLOUR_MODES
+        super().__init__("Page Setup", "PAGE SETUP", parent, 420)
+        self.printer = printer
+        g = QGridLayout()
+        self.mode = QComboBox()
+        self.modes = list(COLOUR_MODES)
+        self.mode.addItems([COLOUR_MODES[m][0] for m in self.modes])
+        self.mode.setCurrentIndex(self.modes.index(mode) if mode in self.modes else 0)
+        self.zoom = QSpinBox()
+        self.zoom.setRange(-10, 20)
+        self.zoom.setValue(zoom)
+        g.addWidget(field_label("Colours"), 0, 0)
+        g.addWidget(self.mode, 0, 1)
+        g.addWidget(field_label("Zoom"), 1, 0)
+        g.addWidget(self.zoom, 1, 1)
+        self.body.addLayout(g)
+        self.header = QCheckBox("Header (file name, date) and footer (page number)")
+        self.header.setChecked(header)
+        self.body.addWidget(self.header)
+        page = QPushButton("Paper and Margins...")
+        page.clicked.connect(self._page)
+        self.body.addWidget(page)
+        self.add_button("OK", self.accept, default=True)
+        self.add_button("Cancel", self.reject)
+
+    def _page(self):
+        from PyQt6.QtPrintSupport import QPageSetupDialog
+        QPageSetupDialog(self.printer, self).exec()
+
+    def chosen_mode(self) -> str:
+        return self.modes[self.mode.currentIndex()]
+
+
+# ----------------------------------------------------------------------------- customize schemes
+class CustomizeSchemesDialog(ParagonDialog):
+    """Notepad2's Customize Schemes: colour (from the family palette), bold, italic, underline for a role
+    in every scheme, or for one style of one scheme. Changes show at once; Cancel puts them back."""
+
+    ALL = "All schemes (by role)"
+
+    def __init__(self, parent, overrides: dict, apply, current_scheme: str = ""):
+        from . import theme
+        from .editor import role_of
+        super().__init__("Customize Schemes", "CUSTOMIZE SCHEMES", parent, 820)
+        self.resize(900, 560)
+        self.apply = apply
+        self.original = {k: dict(v) for k, v in overrides.items()}
+        self.overrides = overrides
+        self.role_of = role_of
+        self.syntax = theme.syntax()
+        cols = QHBoxLayout()
+        self.schemes = QListWidget()
+        self.schemes.addItem(self.ALL)
+        for s in schemes.SCHEMES:
+            if s.lexer:
+                self.schemes.addItem(s.name)
+        self.styles = QListWidget()
+        right = QVBoxLayout()
+        self.preview = QLabel("AaBbCc 0123 \"text\"")
+        self.preview.setMinimumHeight(54)
+        self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        right.addWidget(self.preview)
+        right.addWidget(field_label("Colour"))
+        grid = QGridLayout()
+        grid.setSpacing(6)
+        for i, colour in enumerate(theme.SWATCHES[theme.FINISH]):
+            b = QPushButton()
+            b.setFixedSize(30, 24)
+            b.setToolTip(colour)
+            b.setStyleSheet(f"QPushButton {{ background: {colour}; border: 1px solid {theme.PANEL_EDGE}; "
+                            f"border-radius: 3px; padding: 0; }} QPushButton:hover {{ border: 1px solid {theme.ACCENT}; }}")
+            b.clicked.connect(lambda _=False, c=colour: self._set("fore", c))
+            grid.addWidget(b, i // 8, i % 8)
+        right.addLayout(grid)
+        default = QPushButton("Default Colour")
+        default.clicked.connect(lambda: self._set("fore", None))
+        right.addWidget(default)
+        self.bold, self.italic, self.underline = QCheckBox("Bold"), QCheckBox("Italic"), QCheckBox("Underline")
+        for name, c in (("bold", self.bold), ("italic", self.italic), ("underline", self.underline)):
+            c.clicked.connect(lambda on, n=name: self._set(n, on))
+            right.addWidget(c)
+        reset = QPushButton("Reset Style")
+        reset.clicked.connect(self._reset_style)
+        right.addWidget(reset)
+        right.addStretch(1)
+        cols.addWidget(self.schemes, 2)
+        cols.addWidget(self.styles, 3)
+        cols.addLayout(right, 3)
+        self.body.addLayout(cols, 1)
+        self.add_button("Reset All", self._reset_all)
+        self.add_button("OK", self.accept, default=True)
+        self.add_button("Cancel", self.reject)
+        self.schemes.currentRowChanged.connect(self._fill_styles)
+        self.styles.currentRowChanged.connect(lambda _: self._show())
+        names = [self.schemes.item(i).text() for i in range(self.schemes.count())]
+        self.schemes.setCurrentRow(names.index(current_scheme) if current_scheme in names else 0)
+
+    # the selected style's key and base look
+    def _fill_styles(self, _row=None):
+        self.styles.clear()
+        self.keys = []
+        name = self.schemes.currentItem().text()
+        if name == self.ALL:
+            for role in self.syntax:
+                self.styles.addItem(role.capitalize())
+                self.keys.append((f"role:{role}", role))
+        else:
+            lexer = schemes.make_lexer(schemes.BY_NAME[name])
+            for style in range(128):
+                desc = lexer.description(style)
+                if desc:
+                    self.styles.addItem(desc)
+                    self.keys.append((f"{name}:{style}", self.role_of(desc)))
+        self.styles.setCurrentRow(0)
+
+    def current(self) -> tuple[str, str]:
+        r = self.styles.currentRow()
+        return self.keys[r] if 0 <= r < len(self.keys) else ("", "default")
+
+    def effective(self) -> dict:
+        key, role = self.current()
+        colour, bold, italic = self.syntax[role]
+        look = {"fore": colour, "bold": bold, "italic": italic, "underline": False}
+        for k in (f"role:{role}", key):
+            look.update(self.overrides.get(k, {}))
+        return look
+
+    def _show(self):
+        from . import theme
+        look = self.effective()
+        for name, c in (("bold", self.bold), ("italic", self.italic), ("underline", self.underline)):
+            c.setChecked(bool(look[name]))
+        css = (f"background: {theme.editor_colours()['paper']}; color: {look['fore']}; border: 1px solid "
+               f"{theme.PANEL_EDGE}; border-radius: 6px; font-family: Consolas, 'DejaVu Sans Mono', monospace; "
+               f"font-size: 16px; font-weight: {'700' if look['bold'] else '400'}; "
+               f"font-style: {'italic' if look['italic'] else 'normal'}; "
+               f"text-decoration: {'underline' if look['underline'] else 'none'};")
+        self.preview.setStyleSheet(css)
+
+    def _set(self, attr: str, value):
+        key, _ = self.current()
+        if not key:
+            return
+        o = dict(self.overrides.get(key, {}))
+        if value is None:
+            o.pop(attr, None)
+        else:
+            o[attr] = value
+        if o:
+            self.overrides[key] = o
+        else:
+            self.overrides.pop(key, None)
+        self.apply(self.overrides)
+        self._show()
+
+    def _reset_style(self):
+        key, _ = self.current()
+        self.overrides.pop(key, None)
+        self.apply(self.overrides)
+        self._show()
+
+    def _reset_all(self):
+        self.overrides.clear()
+        self.apply(self.overrides)
+        self._show()
+
+    def reject(self):
+        self.overrides.clear()
+        self.overrides.update(self.original)
+        self.apply(self.overrides)
+        super().reject()

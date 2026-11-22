@@ -10,6 +10,15 @@ Run **`PR7-W-Setup-<version>.exe`** (repo Releases, or the latest build's *PR7-W
 Actions). It installs for your user (no admin rights) into `%LOCALAPPDATA%\Programs\PR7-W`, adds it to
 the Start menu and, ticked by default, puts **"Edit with PR7-W"** on Explorer's right-click menu
 (Windows 11: under "Show more options") and PR7-W under **"Open with"** for text and source files.
+It also offers (ticked) to **replace Windows Notepad**: anything that starts notepad.exe (the Run box,
+"Edit" in other programs, apps that open logs in Notepad) gets PR7-W. That's machine-wide, so it asks
+for administrator permission once; uninstalling puts Notepad back. Toggle it later in Settings >
+Replace Windows Notepad.
+
+To make PR7-W open .txt and the other text types on double-click, use **Settings > Default Text
+Editor...**: it opens Windows' Default apps page for PR7-W, where "Set default" takes all of its types
+(Windows doesn't let programs set that themselves).
+
 Uninstall from Settings > Apps > Installed apps.
 
 ## Use
@@ -18,6 +27,11 @@ Notepad2's shortcuts throughout: Ctrl+F / F3 / Shift+F3 find, Ctrl+H replace, Ct
 Ctrl+W word wrap, Ctrl+Q toggle comment, Ctrl+D duplicate line, Ctrl+Shift+Up/Down move lines, Alt+O
 sort lines, Alt+M modify lines, Ctrl+Shift+U / Ctrl+U case, Ctrl+K swap with clipboard, Alt+T always on
 top, Alt+Shift+T transparent. `PR7-W.exe file.txt /g 120,8` opens at line 120, column 8.
+
+File > Page Setup / Print (Ctrl+P) print with a header (file name, date) and footer (page number); on
+paper the text is in darker shades of the family colours on white. View > Customize Schemes (Ctrl+F12)
+changes any style's colour (from the family swatches), bold, italic or underline. View > Finish switches
+between OBSIDIAN (dark) and AURORA (light).
 
 Syntax colours come from the family palette only (pink / red / orange hues, pearl and onyx greys),
 chosen by each style's role so every language gets the same scheme. The editor text is monospaced

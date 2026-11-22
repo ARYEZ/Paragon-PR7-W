@@ -6,7 +6,7 @@ import winreg
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from pr7w import shell  # noqa: E402
+from pr7w import notepad, shell  # noqa: E402
 
 HKCU = winreg.HKEY_CURRENT_USER
 APP = Path(os.environ["LOCALAPPDATA"]) / "Programs" / "PR7-W"
@@ -60,6 +60,11 @@ def installed():
     check(cmd.lower() == f'"{exe}" "%1"'.lower(), f"the menu runs the installed PR7-W ({cmd})", p)
     check(has_value(r"Software\Classes\.py\OpenWithProgids", shell.PROGID), '"Open with" for .py', p)
     check(has_value(r"Software\Classes\.txt\OpenWithProgids", shell.PROGID), '"Open with" for .txt', p)
+    check(value(r"Software\RegisteredApplications", shell.APP_NAME) == shell.CAPABILITIES,
+          "registered with Windows' Default apps", p)
+    check(value(shell.CAPABILITIES + r"\FileAssociations", ".txt") == shell.PROGID, "default-app candidate for .txt", p)
+    dbg = notepad.current_debugger()
+    check(notepad.is_ours(dbg) and str(exe).lower() in dbg.lower(), f"notepad.exe starts the installed PR7-W ({dbg})", p)
     return p
 
 
@@ -72,6 +77,8 @@ def uninstalled():
         check(value(UNINSTALL, "DisplayName") is None, "Installed apps entry removed", p)
         check(value(rf"Software\Classes\*\shell\{shell.VERB}", "MUIVerb") is None, "menu removed", p)
         check(not has_value(r"Software\Classes\.txt\OpenWithProgids", shell.PROGID), '"Open with" removed', p)
+        check(value(r"Software\RegisteredApplications", shell.APP_NAME) is None, "Default apps registration removed", p)
+        check(notepad.current_debugger() == "", "Windows Notepad restored", p)
         if not p or time.time() > deadline:
             return p
         print("... waiting for the uninstaller to finish")
