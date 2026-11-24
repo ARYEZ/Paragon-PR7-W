@@ -92,6 +92,8 @@ def main(argv: list[str] | None = None) -> int:
         w.close()
         return 0 if ok else 2
     w.show()
+    from . import update_ui
+    update_ui.start(w)  # a check for updates, once a day
     return app.exec()
 
 

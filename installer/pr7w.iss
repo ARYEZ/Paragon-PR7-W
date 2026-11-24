@@ -62,8 +62,17 @@ Filename: "{app}\PR7-W.exe"; Parameters: "--unregister-open-with"; Tasks: not op
 ; Replacing Notepad is machine-wide (notepad.exe's redirect in HKLM): run elevated, one UAC prompt.
 Filename: "{app}\PR7-W.exe"; Parameters: "--replace-notepad"; Tasks: replacenotepad; Verb: "runas"; Flags: shellexec runhidden waituntilterminated; StatusMsg: "Replacing Windows Notepad..."
 Filename: "{app}\PR7-W.exe"; Description: "{cm:LaunchProgram,Paragon PR7-W}"; Flags: nowait postinstall skipifsilent
+; Updates (Check for Updates runs this installer with /SILENT /relaunch=1): start PR7-W again when done.
+Filename: "{app}\PR7-W.exe"; Flags: nowait runasoriginaluser; Check: Relaunch
 
 [UninstallRun]
 Filename: "{app}\PR7-W.exe"; Parameters: "--unregister"; Flags: runhidden waituntilterminated; RunOnceId: "PR7WUnregister"
 ; Recorded only when "Replace Windows Notepad" was chosen, so others get no admin prompt on uninstall.
 Filename: "{app}\PR7-W.exe"; Parameters: "--restore-notepad"; Tasks: replacenotepad; Verb: "runas"; Flags: shellexec runhidden waituntilterminated; RunOnceId: "PR7WRestoreNotepad"
+
+[Code]
+// True only when the updater asked for it (/relaunch=1): normal and CI installs behave as before.
+function Relaunch: Boolean;
+begin
+  Result := ExpandConstant('{param:relaunch|0}') = '1';
+end;

@@ -778,6 +778,10 @@ class MainWindow(QMainWindow):
             self._actions[key] = a
         return a
 
+    def check_updates(self):
+        from . import update_ui
+        update_ui.check(self)
+
     def _build_menus(self):
         bar = self.menuBar()
         e = self.editor
@@ -980,4 +984,5 @@ class MainWindow(QMainWindow):
         act(m, "Default Te&xt Editor...", self.default_editor).setEnabled(notepad.available())
 
         m = bar.addMenu("&?")
+        act(m, "Check for &Updates...", self.check_updates)
         act(m, "&About PR7-W...", lambda: AboutDialog(self).exec())

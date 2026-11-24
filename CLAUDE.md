@@ -40,6 +40,8 @@ Python; explain the why of changes.
 - Installer `installer/pr7w.iss` (Inno Setup 6, per user, AppId {D8F51204-6E9E-4CB7-BF2E-58F4908B7937}
   permanent); CI installs it silently and runs `tools/verify_install.py installed|uninstalled`.
 
+- Updates: `pr7w/updates.py` (no Qt; GitHub's public releases/latest, User-Agent names only the app, installer asset `PR7-W-Setup-*.exe`, run with /SILENT /relaunch=1) and `update_ui.py` (once-a-day check from app.py, the menu's Check for Updates, UpdateDialog; settings updates/auto|last|skip; `notify` for tests). The installer's [Code] Relaunch starts PR7-W again only for /relaunch=1. Same files in every family app (PR7-W's update_ui imports PyQt6): keep them in step.
+
 ## The look (family rules)
 
 - Colours: the family's only (hues ~318 -> 0 -> 42 deg, pearl and onyx greys), syntax colours included
