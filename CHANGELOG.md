@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.0
+
+- **Check for Updates knows PR7-U**, the family installer. When it's installed, the update window has **Update All in PR7-U**, and a check by hand that finds PR7-W up to date offers to open PR7-U for the rest of the family.
+
 ## 0.3.0
 
 - **Check for updates**: a few seconds after starting (at most once a day) PR7-W asks GitHub whether a newer release is out; if so, a note offers What's new, Install Now (downloads with progress, installs over this copy, and PR7-W reopens), Later or Skip This Version. "? > Check for Updates" checks by hand. Only the app's name is sent.
