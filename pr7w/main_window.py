@@ -14,6 +14,7 @@ from PyQt6.QtCore import QFileSystemWatcher, QSettings, QSize, Qt, QTimer
 from PyQt6.QtGui import QAction, QActionGroup, QKeySequence
 from PyQt6.QtWidgets import QApplication, QFileDialog, QFontDialog, QLabel, QMainWindow, QStatusBar, QVBoxLayout, QWidget
 
+from . import finish
 from . import document, notepad, printing, schemes, textops, theme
 from .dialogs import (AboutDialog, CustomizeSchemesDialog, FindReplaceDialog, PageSetupDialog, GoToDialog, NumberDialog, SchemeDialog, SortDialog,
                       TwoFieldDialog, ask_save, message)
@@ -597,6 +598,7 @@ class MainWindow(QMainWindow):
     def set_finish(self, name: str):
         """OBSIDIAN (dark) or AURORA (light): the whole window and the editor, at once."""
         theme.set_finish(name)
+        finish.set(theme.FINISH)                 # every family app follows (finish.py)
         app = QApplication.instance()
         app.setPalette(theme.palette())
         app.setStyleSheet(theme.stylesheet())

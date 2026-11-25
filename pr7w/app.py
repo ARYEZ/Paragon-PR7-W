@@ -74,7 +74,8 @@ def main(argv: list[str] | None = None) -> int:
     from PyQt6.QtWidgets import QApplication
     from PyQt6.QtCore import QSettings
     from . import theme
-    theme.set_finish(QSettings("Paragon", "PR7-W").value("finish", "obsidian"))
+    from . import finish
+    theme.set_finish(finish.start(QSettings("Paragon", "PR7-W").value("finish", "obsidian")))
     QApplication.setApplicationName("PR7-W")
     QApplication.setOrganizationName("Paragon")
     app = QApplication.instance() or QApplication([sys.argv[0]])
@@ -86,6 +87,11 @@ def main(argv: list[str] | None = None) -> int:
         app.setWindowIcon(QIcon(str(ico)))
     from .main_window import MainWindow
     w = MainWindow(path, goto)
+    # one finish for the family: follow a switch made in another family app (finish.py)
+    from PyQt6.QtCore import QTimer
+    _follow = QTimer(w)
+    _follow.timeout.connect(lambda: finish.follow(theme.FINISH, w.set_finish))
+    _follow.start(2000)
     if action == "--print-file":  # Notepad's /p: print on the default printer, no window
         ok = w.print_document(dialog=False)
         w.editor.setModified(False)

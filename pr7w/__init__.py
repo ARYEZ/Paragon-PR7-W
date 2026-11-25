@@ -1,3 +1,3 @@
 """Paragon PR7-W: a text editor that works like Notepad2, in the Paragon look."""
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
